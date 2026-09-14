@@ -26,7 +26,7 @@ flowchart LR
 |---|---|---|
 | **최신 논문 자동 수집** | [`collect/daily_digest.py`](collect/daily_digest.py) | arXiv API 1차 + **OpenAlex 폴백**(rate-limit 시), HTTP 429 fail-soft·재시도, Windows Task Scheduler cron |
 | **로컬 LLM 요약** | [`summarize/`](summarize/) — [`paper_summary.py`](summarize/paper_summary.py), [`enrich_new_papers.py`](summarize/enrich_new_papers.py) | Ollama · Gemma, **비용 0**, 프롬프트 인젝션 방어(untrusted 격리), 캐시 |
-| **지식 그래프 구조화** | 규칙 기반 자동 태깅([`daily_digest.py`](collect/daily_digest.py) `write_source_note`) → Obsidian 그래프 | 태그 계층(`research/add/*`) + 위키링크 그래프 · *(그래프 스크린샷은 아래 참고)* |
+| **지식 그래프 구조화** | 규칙 기반 자동 태깅([`daily_digest.py`](collect/daily_digest.py) `write_source_note`) → Obsidian 그래프 | 태그 계층(`research/add/*`) + 위키링크 그래프 · [그래프 보기 ↓](#지식-그래프) |
 | **벡터 DB + RAG** | [`search_rag/index_vault.py`](search_rag/index_vault.py), [`ask_vault.py`](search_rag/ask_vault.py) | **BGE-M3** 임베딩 + **Chroma** 벡터 DB, 증분 인덱싱(mtime), 로컬 완결 |
 | **수집→활용 완성** | [`export/`](export/) — [`export_papers_repo.py`](export/export_papers_repo.py), [`sync_repos.py`](export/sync_repos.py) | 자동 export + **leak-guard(fail-closed)** + git 자동 커밋·push |
 
@@ -38,6 +38,12 @@ flowchart LR
 커밋 히스토리가 매일 자동 갱신되는 것을 확인할 수 있습니다(automation 증빙). 일부 논문은 로컬 LLM이 생성한 요약 페이지(`summaries/`)로 링크됩니다.
 
 > ⚠ 요약은 로컬 LLM 자동 생성물로 **검증되지 않았습니다** — 원문 확인 필요(신뢰 티어 분리, [ARCHITECTURE.md](ARCHITECTURE.md) 참고).
+
+## 지식 그래프
+
+수집·태깅된 논문들이 Obsidian vault에서 태그·위키링크로 연결된 지식 그래프를 이룹니다. 클러스터 = 연구 주제(SSL 프론트엔드, 일반화·OOD, 코덱 딥페이크 등).
+
+![Obsidian knowledge graph](docs/graph.png)
 
 ## 엔지니어링 포인트
 
@@ -65,10 +71,6 @@ python search_rag/ask_vault.py "질문"          # RAG 검색
 ```
 
 수집(`collect/`)과 export(`export/`)는 Python 표준 라이브러리만 사용합니다. 요약은 [Ollama](https://ollama.com) + 로컬 모델(기본 `gemma3n`)이 필요합니다.
-
-## TODO (증빙 보강)
-
-- [ ] Obsidian 지식 그래프 스크린샷 추가 (`docs/graph.png`) — 그래프 구조는 코드가 아닌 시각 자료로 증빙됨
 
 ## License
 
