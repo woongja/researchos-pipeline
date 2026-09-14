@@ -198,8 +198,16 @@ def _summary_sections(text: str) -> str:
     return "\n\n".join(f"## {h}\n\n{b}" for h, b in picked)
 
 
+def _slug(title: str, maxlen: int = 80) -> str:
+    """논문 제목 → 파일명 슬러그. ascii 소문자/숫자/하이픈만. 빈 결과는 'paper'."""
+    s = title.lower()
+    s = re.sub(r"[^a-z0-9\s-]", "", s)   # 구두점·비ascii 제거
+    s = re.sub(r"[\s_-]+", "-", s).strip("-")
+    return s[:maxlen].strip("-") or "paper"
+
+
 def summary_page(p: dict, idx: dict) -> str:
-    """요약 캐시 있으면 summaries/arxiv-<id>.md 생성 후 파일명 반환. 없으면 ""."""
+    """요약 캐시 있으면 summaries/<제목슬러그>.md 생성 후 파일명 반환. 없으면 ""."""
     aid = (p["arxiv"] or "").split("v")[0]
     stem = idx.get(aid) if aid else None
     if not stem:
@@ -227,7 +235,9 @@ def summary_page(p: dict, idx: dict) -> str:
         "",
     ]
     SUMMARIES_DIR.mkdir(parents=True, exist_ok=True)
-    name = f"arxiv-{aid}.md"
+    name = f"{_slug(p['title'])}.md"
+    if (SUMMARIES_DIR / name).exists():        # 같은 제목 슬러그 충돌 → id 접미로 유일화
+        name = f"{_slug(p['title'])}-{aid}.md"
     (SUMMARIES_DIR / name).write_text("\n".join(lines), encoding="utf-8")
     return name
 
@@ -282,8 +292,10 @@ def latest_table(papers: list, dates: dict) -> list:
     lines = ["| Date | Title | First Author | Venue | Citations |",
              "|---|---|---|---|---|"]
     for p in papers:
-        url = f"summaries/{p['_page']}" if p.get("_page") else link_of(p)
+        url = link_of(p)
         title = f"[{md_escape(p['title'])}]({url})" if url else md_escape(p["title"])
+        if p.get("_page"):
+            title += f" · [📝 요약](summaries/{p['_page']})"
         cit = str(p["citations"]) if p["citations"] is not None else ""
         aid = (p["arxiv"] or "").split("v")[0]
         # arxiv API(dates) → 노트 기록 제출일 → 월 폴백 → 연도. 429로 dates가 비어도 정확 날짜 유지.
@@ -300,8 +312,10 @@ def table(papers: list, with_year: bool = True) -> list:
         head, sep = head.replace("| Year ", "", 1), sep[4:]
     lines = [head, sep]
     for p in papers:
-        url = f"../summaries/{p['_page']}" if p.get("_page") else link_of(p)
+        url = link_of(p)
         title = f"[{md_escape(p['title'])}]({url})" if url else md_escape(p["title"])
+        if p.get("_page"):
+            title += f" · [📝 요약](../summaries/{p['_page']})"
         cit = str(p["citations"]) if p["citations"] is not None else ""
         cells = [title, md_escape(p["author"]), md_escape(p["venue"]), cit]
         if with_year:
