@@ -1,0 +1,6 @@
+# Collection + export are Python stdlib only (no install needed).
+# Fulltext ingestion:
+markitdown
+# Local vector search / RAG:
+sentence-transformers
+chromadb

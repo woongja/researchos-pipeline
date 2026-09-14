@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.tmp
+*.md.tmp
+# local artifacts / state — never commit
+_local_rag_index/
+state.json
+.digest_state.json
+downloads/
