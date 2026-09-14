@@ -1,8 +1,8 @@
-# Research Paper Automation Pipeline
+# ResearchOS Pipeline
 
 논문 리서치의 반복 작업을 자동화한 개인 파이프라인입니다. **매일 최신 논문을 자동 수집 → 로컬 LLM으로 요약 → 지식 그래프로 구조화 → 벡터 DB에 임베딩하여 의미 기반 검색(RAG)** 까지, 데이터 수집부터 지식 활용까지 하나의 흐름으로 연결했습니다. 도메인은 **오디오 딥페이크 탐지(Audio Deepfake Detection)** 연구입니다.
 
-> 이 저장소는 개인 연구용 시스템(Obsidian 기반 research-vault)에서 **파이프라인 코드만 발췌·정리**한 것입니다. 개인 연구 노트·vault 내용은 포함하지 않습니다.
+> 이 저장소는 개인 연구 시스템 **ResearchOS**(Obsidian 기반 research-vault + 자동화 파이프라인)의 **데이터 파이프라인 계층 코드만 발췌·정리**한 것입니다. 개인 연구 노트·vault 내용은 포함하지 않습니다.
 
 ---
 
