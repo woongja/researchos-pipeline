@@ -18,6 +18,7 @@ Design (unchanged from production):
     python paper_summary.py Sources/_fulltext/arxiv-2608.13817.md
 """
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -57,6 +58,44 @@ def _safe_fulltext(rel: str):
     return p
 
 
+_REF_RE = re.compile(r'(?im)^\s{0,3}#{0,4}\s*(references|bibliography|acknowledg\w*)\b')
+_HEAD_RE = re.compile(r'(?m)^#{1,4}\s+(.+?)\s*$')
+_PRI_RE = re.compile(r'(?i)result|experiment|evaluation|conclusion|discussion|ablation|finding|analysis')
+
+
+def _salient_body(text: str, budget: int = 20000, ctx_cap: int = 9000) -> str:
+    """논문 전문(마크다운)에서 요약 핵심부만 추출해 모델 입력 예산에 맞춤.
+    앞 12000자만 보던 문제 해결 — median 42k자라 실험·결과가 잘려 모델이 못 봤음.
+    references/appendix 꼬리 제거 → 헤딩 있으면 실험·결과·결론 섹션 전량 + intro·method는
+    ctx_cap까지 → 헤딩 없으면 head+tail 폴백. budget은 num_ctx 8192 안에 들도록 제한."""
+    text = text.strip()
+    m = _REF_RE.search(text)
+    if m and m.start() > 2000:
+        text = text[:m.start()]
+    if len(text) <= budget:
+        return text
+    heads = list(_HEAD_RE.finditer(text))
+    if len(heads) >= 3:
+        pre = text[:heads[0].start()].strip()
+        out = [pre + "\n\n"] if pre else []
+        ctx_used = len(pre)
+        for i, h in enumerate(heads):
+            s = h.start()
+            e = heads[i + 1].start() if i + 1 < len(heads) else len(text)
+            name, sec = h.group(1), text[s:e]
+            if _PRI_RE.search(name):
+                out.append(sec)
+            elif ctx_used < ctx_cap:
+                take = sec[:ctx_cap - ctx_used]
+                out.append(take)
+                ctx_used += len(take)
+        joined = "".join(out).strip()
+        if joined:
+            return joined[:budget]
+    half = budget // 2
+    return text[:half].rstrip() + "\n\n…\n\n" + text[-(budget - half):].lstrip()
+
+
 def h_paper_summary(params) -> dict:
     """논문 전문 → Gemma 구조화 요약. 캐시 히트=즉시, 미스=생성 30~60초.
     로컬 전용(claude 폴백 없음 — 비용 0 원칙). 미가동 시 에러+원문 안내.
@@ -78,7 +117,7 @@ def h_paper_summary(params) -> dict:
     model = os.environ.get("RESEARCHOS_LOCAL_MODEL") or None
     if not LOC.available(model=model):
         return {"error": "로컬 LLM 미가동 — Ollama 실행 시 정리본 생성 가능(원문은 그대로 열람)"}
-    body = p.read_text("utf-8", "replace").split("---", 2)[-1][:12000]
+    body = _salient_body(p.read_text("utf-8", "replace").split("---", 2)[-1])
     res = LOC.run_local(_SUM_PROMPT + _untrusted("논문본문", body), model=model, timeout=240)
     if not res.get("ok"):
         return {"error": f"로컬 LLM 실패({res.get('error')})"}
