@@ -30,14 +30,16 @@ def available(timeout: int = 3, model: str = None) -> bool:
         return False
 
 
-def run_local(prompt: str, model: str = None, timeout: int = 240) -> dict:
-    """Ollama /api/generate → {ok, text} 또는 {ok:False, error}. 실패=호출측 claude 폴백."""
+def run_local(prompt: str, model: str = None, timeout: int = 240,
+              temperature: float = 0.3) -> dict:
+    """Ollama /api/generate → {ok, text} 또는 {ok:False, error}. 실패=호출측 claude 폴백.
+    temperature 기본 0.3. 사실 요약(비전형 fixed/varied 뒤집힘 방지)은 0.1 권장 — 실측 3/3."""
     body = json.dumps({
         "model": model or LOCAL_MODEL,
         "prompt": prompt,
         "stream": False,
         "keep_alive": KEEP_ALIVE,
-        "options": {"temperature": 0.3, "num_ctx": 8192},
+        "options": {"temperature": temperature, "num_ctx": 8192},
     }).encode("utf-8")
     req = urllib.request.Request(OLLAMA + "/api/generate", data=body,
                                  headers={"Content-Type": "application/json"})

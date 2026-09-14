@@ -191,7 +191,9 @@ def _summary_sections(text: str) -> str:
     text = re.sub(r"(?m)^>?\s*⚠.*로컬 LLM.*$", "", text).strip()
     parts = re.split(r"(?m)^#{2,3}\s*(.+?)\s*$", text)  # [pre, h1, b1, h2, b2, ...]
     it = iter(parts[1:])
-    picked = [(h.strip(), b.strip()) for h, b in zip(it, it)]
+    _skip = re.compile(r"핵심 사실|참고\s*문헌|참조|references|bibliography", re.I)
+    picked = [(h.strip(), b.strip()) for h, b in zip(it, it)
+              if not _skip.search(h)]                     # 추출 스캐폴딩·참고문헌은 공개 페이지서 제외
     if not picked:
         return text                                       # 폴백: 전체(빈 페이지 방지)
     return "\n\n".join(f"## {h}\n\n{b}" for h, b in picked)

@@ -30,8 +30,13 @@ VAULT = Path(os.environ.get("RESEARCH_VAULT", "")).expanduser()
 FULLTEXT = "Sources/_fulltext"              # fulltext markdown folder (relative to vault)
 
 # ── 논문 정리본: 로컬 Gemma가 전문 md → 구조화 요약. 캐시=_sum-*.md (verbatim from production)
-_SUM_PROMPT = ("당신은 논문 정리 보조입니다. 아래 논문을 한국어로 구조화 정리하세요. "
-               "마크다운으로 정확히 이 섹션들:\n"
+_SUM_PROMPT = ("당신은 논문 정리 보조입니다. 아래 논문을 한국어로 정리하세요.\n"
+               "먼저 '## 핵심 사실' 섹션에 본문에서 **그대로** 뽑아 적으세요:\n"
+               "- 실험에서 고정(fixed)한 것과 변경(varied)한 것 (본문 문장 그대로, "
+               "헷갈리면 다시 확인 — 일반적 패턴과 정반대일 수 있음)\n"
+               "- 제안 방법의 핵심 단계\n"
+               "- 주요 수치·결과\n"
+               "그 다음 아래 섹션들을 쓰되, 위 '핵심 사실'과 모순되면 안 됩니다:\n"
                "## 한 줄 요약\n## 문제 정의\n## 제안 방법\n"
                "## 실험·결과 (수치 있으면 그대로 인용)\n## 한계\n"
                "새 주장·수치 발명 금지 — 본문에 있는 것만. 각 섹션 2~4문장.\n\n")
@@ -68,7 +73,7 @@ def _salient_body(text: str, budget: int = 20000, ctx_cap: int = 9000) -> str:
     앞 12000자만 보던 문제 해결 — median 42k자라 실험·결과가 잘려 모델이 못 봤음.
     references/appendix 꼬리 제거 → 헤딩 있으면 실험·결과·결론 섹션 전량 + intro·method는
     ctx_cap까지 → 헤딩 없으면 head+tail 폴백. budget은 num_ctx 8192 안에 들도록 제한."""
-    text = text.strip()
+    text = re.sub(r'\[\[?\d+\]\(#bib\.bib\d+\)\]?', '', text).strip()  # ar5iv 인라인 인용 마커 제거
     m = _REF_RE.search(text)
     if m and m.start() > 2000:
         text = text[:m.start()]
@@ -118,7 +123,8 @@ def h_paper_summary(params) -> dict:
     if not LOC.available(model=model):
         return {"error": "로컬 LLM 미가동 — Ollama 실행 시 정리본 생성 가능(원문은 그대로 열람)"}
     body = _salient_body(p.read_text("utf-8", "replace").split("---", 2)[-1])
-    res = LOC.run_local(_SUM_PROMPT + _untrusted("논문본문", body), model=model, timeout=240)
+    res = LOC.run_local(_SUM_PROMPT + _untrusted("논문본문", body), model=model,
+                        timeout=240, temperature=0.1)   # 사실 뒤집힘 방지(실측 3/3)
     if not res.get("ok"):
         return {"error": f"로컬 LLM 실패({res.get('error')})"}
     md = res["text"].strip()
