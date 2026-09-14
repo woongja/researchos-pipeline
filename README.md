@@ -20,9 +20,9 @@ flowchart LR
     E --> H["GitHub 공개 저장소<br/>매일 자동 갱신"]
 ```
 
-## 자소서 문장 ↔ 코드 매핑
+## 기능 ↔ 코드
 
-| 주장 | 구현 | 핵심 기술 |
+| 기능 | 구현 | 핵심 기술 |
 |---|---|---|
 | **최신 논문 자동 수집** | [`collect/daily_digest.py`](collect/daily_digest.py) | arXiv API 1차 + **OpenAlex 폴백**(rate-limit 시), HTTP 429 fail-soft·재시도, Windows Task Scheduler cron |
 | **로컬 LLM 요약** | [`summarize/`](summarize/) — [`paper_summary.py`](summarize/paper_summary.py), [`enrich_new_papers.py`](summarize/enrich_new_papers.py) | Ollama · Gemma, **비용 0**, 프롬프트 인젝션 방어(untrusted 격리), 캐시 |
@@ -30,12 +30,12 @@ flowchart LR
 | **벡터 DB + RAG** | [`search_rag/index_vault.py`](search_rag/index_vault.py), [`ask_vault.py`](search_rag/ask_vault.py) | **BGE-M3** 임베딩 + **Chroma** 벡터 DB, 증분 인덱싱(mtime), 로컬 완결 |
 | **수집→활용 완성** | [`export/`](export/) — [`export_papers_repo.py`](export/export_papers_repo.py), [`sync_repos.py`](export/sync_repos.py) | 자동 export + **leak-guard(fail-closed)** + git 자동 커밋·push |
 
-## 실제 산출물 (자동화 증빙)
+## 실제 산출물
 
 이 파이프라인이 **매일 자동으로 갱신**하는 공개 논문 저장소:
 👉 **[audio-deepfake-detection-papers](https://github.com/woongja/audio-deepfake-detection-papers)**
 
-커밋 히스토리가 매일 자동 갱신되는 것을 확인할 수 있습니다(automation 증빙). 일부 논문은 로컬 LLM이 생성한 요약 페이지(`summaries/`)로 링크됩니다.
+커밋 히스토리가 매일 자동 갱신됩니다. 일부 논문은 로컬 LLM이 생성한 요약 페이지(`summaries/`)로 링크됩니다.
 
 > ⚠ 요약은 로컬 LLM 자동 생성물로 **검증되지 않았습니다** — 원문 확인 필요(신뢰 티어 분리, [ARCHITECTURE.md](ARCHITECTURE.md) 참고).
 
