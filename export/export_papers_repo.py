@@ -98,6 +98,11 @@ def parse_note(path: Path) -> dict | None:
         if names:
             first_author = names[0] + (" et al." if len(names) > 1 else "")
 
+    # 노트에 기록된 제출일(YYYY-MM-DD). arxiv API가 429로 죽어도 정확 날짜를 잃지 않도록
+    # latest_table의 폴백으로 사용(fetch_arxiv_dates 실패 시 월이 아니라 이 값).
+    sub_m = re.search(r"^> \*\*제출일:?\*\*\s*(\d{4}-\d{2}-\d{2})", text, re.MULTILINE)
+    submitted = sub_m.group(1) if sub_m else ""
+
     year = 0
     year_m = re.search(r"research/(?:meta/)?year/(\d{4})", fm)
     arxiv = fm_value("arxiv")
@@ -120,6 +125,7 @@ def parse_note(path: Path) -> dict | None:
         "citations": int(citations) if citations.isdigit() else None,
         "arxiv": arxiv,
         "s2id": fm_value("s2id"),
+        "submitted": submitted,
         "tags": tags,
     }
 
@@ -280,7 +286,8 @@ def latest_table(papers: list, dates: dict) -> list:
         title = f"[{md_escape(p['title'])}]({url})" if url else md_escape(p["title"])
         cit = str(p["citations"]) if p["citations"] is not None else ""
         aid = (p["arxiv"] or "").split("v")[0]
-        when = dates.get(aid) or ym_of(p["arxiv"]) or str(p["year"])
+        # arxiv API(dates) → 노트 기록 제출일 → 월 폴백 → 연도. 429로 dates가 비어도 정확 날짜 유지.
+        when = dates.get(aid) or p.get("submitted") or ym_of(p["arxiv"]) or str(p["year"])
         lines.append("| " + " | ".join([when, title, md_escape(p["author"]),
                                          md_escape(p["venue"]), cit]) + " |")
     return lines
