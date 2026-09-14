@@ -47,6 +47,10 @@ OPENALEX_API = "https://api.openalex.org/works"
 POLITE_EMAIL = os.environ.get("OPENALEX_MAILTO", "")  # OpenAlex polite pool (optional)
 _ARXIV_RE = re.compile(r"arxiv[.:/]*(?:abs/)?(\d{4}\.\d{4,5})", re.IGNORECASE)
 
+# alphaXiv 무인증 공개 키워드 검색(doc63): arxiv 코퍼스 BM25. 상시 보강 소스로 병합(커버리지↑).
+ALPHAXIV_API = "https://api.alphaxiv.org"
+_AXID_RE = re.compile(r"\d{4}\.\d{4,5}")
+
 # (pattern, score, suggested tags)
 KEYWORD_RULES = [
     (r"deepfake|deep fake", 4, []),
@@ -242,6 +246,56 @@ def _fetch_openalex(max_results: int) -> list:
     return out
 
 
+def _fetch_alphaxiv(max_results: int) -> list:
+    """alphaXiv 무인증 키워드(BM25) 검색을 추가 발견 소스로 사용(doc63). arxiv 코퍼스라
+    paperId=arxiv id. authors 미제공(빈 리스트). arxiv Atom과 동일 dict shape. 실패=fail-soft([])."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=LOOKBACK_DAYS)).date().isoformat()
+    out, seen = [], set()
+    for phrase in PHRASE_QUERIES:
+        params = urllib.parse.urlencode({
+            "q": phrase, "prioritize": "default", "publishedAfter": cutoff,
+        })
+        req = urllib.request.Request(
+            f"{ALPHAXIV_API}/search/v2/paper/discover/keyword?{params}",
+            headers={"User-Agent": "vault-digest/1.0"})
+        data = None
+        for attempt in range(4):  # 연타 방어 백오프(공통 패턴)
+            try:
+                with urllib.request.urlopen(req, timeout=60) as resp:
+                    data = json.loads(resp.read().decode("utf-8", "replace"))
+                break
+            except urllib.error.HTTPError as e:
+                if e.code in (429, 500, 503) and attempt < 3:
+                    time.sleep(10 * (attempt + 1))
+                else:
+                    break          # 한 구문 실패해도 다음 구문 진행(fail-soft)
+            except (urllib.error.URLError, TimeoutError, OSError):
+                if attempt < 3:
+                    time.sleep(10 * (attempt + 1))
+                else:
+                    break
+        if not data:
+            print(f"warn: alphaxiv discover failed ({phrase})")
+            time.sleep(2)
+            continue
+        for hit in data:               # 응답 = PaperHit 배열
+            aid = (hit.get("paperId") or "").split("v")[0]
+            title = hit.get("title")
+            if not _AXID_RE.fullmatch(aid) or aid in seen or not title:
+                continue
+            seen.add(aid)
+            out.append({
+                "id": aid,
+                "title": re.sub(r"\s+", " ", title).strip(),
+                "abstract": (hit.get("abstract") or "").strip(),
+                "authors": [],          # discover는 저자 미제공
+                "published": (hit.get("publicationDate") or "")[:10],
+                "link": f"https://arxiv.org/abs/{aid}",
+            })
+        time.sleep(2)
+    return out
+
+
 def fetch_recent() -> list:
     """카테고리 스윕(정밀) + ti/abs 구문검색(카테고리 사각지대 커버) 2패스, id로 dedup.
     둘 다 빈손이면(arxiv 전면 장애) OpenAlex 무키 폴백(doc62)."""
@@ -269,7 +323,20 @@ def fetch_recent() -> list:
                 seen_ids.add(p["id"])
                 papers.append(p)
 
-    if not papers:  # arxiv 전면 429/timeout → OpenAlex 무키 폴백(doc62)
+    # alphaXiv 무인증 키워드 검색을 상시 보강 소스로 병합(doc63). 커버리지↑, id로 dedup, fail-soft.
+    try:
+        added = 0
+        for p in _fetch_alphaxiv(PHRASE_MAX_RESULTS):
+            if p["id"] not in seen_ids:
+                seen_ids.add(p["id"])
+                papers.append(p)
+                added += 1
+        if added:
+            print(f"info: alphaxiv supplement added {added} papers")
+    except Exception as e:
+        print(f"warn: alphaxiv supplement error: {type(e).__name__}: {e}")
+
+    if not papers:  # arxiv+alphaXiv 전면 장애 → OpenAlex 무키 폴백(doc62)
         print("info: arxiv yielded 0 — trying OpenAlex fallback")
         try:
             papers = _fetch_openalex(PHRASE_MAX_RESULTS)
