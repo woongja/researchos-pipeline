@@ -186,13 +186,12 @@ def _summary_index() -> dict:
 
 
 def _summary_sections(text: str) -> str:
-    """Gemma 요약에서 '한 줄 요약·문제 정의·제안 방법'만 발췌(간단 버전). 헤딩 못 맞추면 전체 폴백.
-    캐시 말미 로컬LLM 경고줄은 제거(export 배너로 대체)."""
+    """Gemma 요약의 모든 섹션(한 줄 요약·문제 정의·제안 방법·실험·결과·한계)을 그대로 발췌.
+    캐시 말미 로컬LLM 경고줄만 제거(export 배너로 대체). 헤딩 못 맞추면 전체 폴백."""
     text = re.sub(r"(?m)^>?\s*⚠.*로컬 LLM.*$", "", text).strip()
     parts = re.split(r"(?m)^#{2,3}\s*(.+?)\s*$", text)  # [pre, h1, b1, h2, b2, ...]
     it = iter(parts[1:])
-    picked = [(h.strip(), b.strip()) for h, b in zip(it, it)
-              if re.search(r"한\s*줄|문제|방법", h)]
+    picked = [(h.strip(), b.strip()) for h, b in zip(it, it)]
     if not picked:
         return text                                       # 폴백: 전체(빈 페이지 방지)
     return "\n\n".join(f"## {h}\n\n{b}" for h, b in picked)
