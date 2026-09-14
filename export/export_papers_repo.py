@@ -289,19 +289,18 @@ def fetch_arxiv_dates(ids: list) -> dict:
 
 def latest_table(papers: list, dates: dict) -> list:
     """Latest 섹션 전용 — Date = arxiv 제출일(YYYY-MM-DD). 못 받으면 월(YYYY-MM) 폴백."""
-    lines = ["| Date | Title | First Author | Venue | Citations |",
+    lines = ["| Date | Title | First Author | Summary | Citations |",
              "|---|---|---|---|---|"]
     for p in papers:
         url = link_of(p)
         title = f"[{md_escape(p['title'])}]({url})" if url else md_escape(p["title"])
-        if p.get("_page"):
-            title += f" · [📝 요약](summaries/{p['_page']})"
+        summary = f"[📝](summaries/{p['_page']})" if p.get("_page") else ""
         cit = str(p["citations"]) if p["citations"] is not None else ""
         aid = (p["arxiv"] or "").split("v")[0]
         # arxiv API(dates) → 노트 기록 제출일 → 월 폴백 → 연도. 429로 dates가 비어도 정확 날짜 유지.
         when = dates.get(aid) or p.get("submitted") or ym_of(p["arxiv"]) or str(p["year"])
         lines.append("| " + " | ".join([when, title, md_escape(p["author"]),
-                                         md_escape(p["venue"]), cit]) + " |")
+                                         summary, cit]) + " |")
     return lines
 
 
